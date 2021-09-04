@@ -194,7 +194,7 @@ class CarState(CarStateBase):
       ret.gas = pt_cp.vl["Motor_3"]['Fahrpedal_Rohsignal'] / 100.0
       ret.gasPressed = ret.gas > 0
     else:
-      ret.gas = (cam_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cam_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
+      ret.gas = (pt_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + pt_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
       ret.gasPressed = ret.gas > 468
 
     ret.brake = pt_cp.vl["Bremse_5"]["Bremsdruck"] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
@@ -450,6 +450,10 @@ class CarState(CarStateBase):
       ("Gate_Komf_1", 10),        # From J533 CAN gateway
     ]
 
+    if CP.enableGasInterceptor:
+      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
+      checks += [("GAS_SENSOR", 50)]
+
     if CP.transmissionType == TransmissionType.automatic:
       signals += [("Waehlhebelposition__Getriebe_1_", "Getriebe_1", 0)]  # Auto trans gear selector position
       checks += [("Getriebe_1", 100)]  # From J743 Auto transmission control module
@@ -501,25 +505,11 @@ class CarState(CarStateBase):
 
     signals = [
       # sig_name, sig_address, default
-      ("Kombi_Lamp_Green", "LDW_1", 0),               # Just to check camera for CAN bus validity
     ]
 
     checks = [
       # sig_address, frequency
-      #("LDW_1", 20)        # From R242 Driver assistance camera
     ]
-
-    if CP.enableGasInterceptor:
-      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
-      checks += [("GAS_SENSOR", 50)]
-
-    if CP.networkLocation == NetworkLocation.gateway:
-      # Extended CAN devices other than the camera are here on CANBUS.cam
-      #signals += PqExtraSignals.fwd_radar_signals
-      #checks += PqExtraSignals.fwd_radar_checks
-      if CP.enableBsm:
-        signals += PqExtraSignals.bsm_radar_signals
-        checks += PqExtraSignals.bsm_radar_checks
 
     return CANParser(DBC_FILES.pq, signals, checks, CANBUS.cam, enforce_checks=False)
 
