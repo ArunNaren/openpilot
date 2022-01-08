@@ -27,10 +27,10 @@ class CarController():
       self.create_steering_control = volkswagencan.create_pq_steering_control
       self.create_acc_buttons_control = volkswagencan.create_pq_acc_buttons_control
       self.create_hud_control = volkswagencan.create_pq_hud_control
-      self.create_gas_control = volkswagencan.create_pq_pedal_control
-      self.create_braking_control = volkswagencan.create_pq_braking_control
-      self.create_awv_control = volkswagencan.create_pq_awv_control
-      self.create_bremse8_control = volkswagencan.create_pq_bremse8_control
+      # self.create_gas_control = volkswagencan.create_pq_pedal_control
+      # self.create_braking_control = volkswagencan.create_pq_braking_control
+      # self.create_awv_control = volkswagencan.create_pq_awv_control
+      # self.create_bremse8_control = volkswagencan.create_pq_bremse8_control
       self.ldw_step = P.PQ_LDW_STEP
 
     else:
