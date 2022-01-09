@@ -45,7 +45,7 @@ class CarControllerParams:
 
 class CANBUS:
   pt = 0
-  # br = 1
+  br = 1
   cam = 2
 
 class DBC_FILES:
