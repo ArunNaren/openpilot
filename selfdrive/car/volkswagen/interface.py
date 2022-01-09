@@ -17,12 +17,12 @@ class CarInterface(CarInterfaceBase):
     # Alias Extended CAN parser to PT/CAM parser, based on detected network location
     self.cp_ext = self.cp if CP.networkLocation == NetworkLocation.fwdCamera else self.cp_cam
 
-    # if CP.networkLocation == NetworkLocation.fwdCamera:
-    #  self.ext_bus = CANBUS.pt
-    #  self.cp_ext = self.cp
-    # else:
-    #  self.ext_bus = CANBUS.cam
-    #  self.cp_ext = self.cp_cam
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+     self.ext_bus = CANBUS.pt
+     self.cp_ext = self.cp
+    else:
+     self.ext_bus = CANBUS.cam
+     self.cp_ext = self.cp_cam
 
     self.pqCounter = 0
     self.wheelGrabbed = False
