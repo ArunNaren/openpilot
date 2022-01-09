@@ -10,9 +10,9 @@ VisualAlert = car.CarControl.HUDControl.VisualAlert
 class CarController():
   def __init__(self, dbc_name, CP, VM):
     self.apply_steer_last = 0
-    self.mobPreEnable = False
-    self.mobEnabled = False
-    self.haltenCounter = 0
+#    self.mobPreEnable = False
+#    self.mobEnabled = False
+#    self.haltenCounter = 0
 
     self.hcaSameTorqueCount = 0
     self.hcaEnabledFrameCount = 0
@@ -27,10 +27,10 @@ class CarController():
       self.create_steering_control = volkswagencan.create_pq_steering_control
       self.create_acc_buttons_control = volkswagencan.create_pq_acc_buttons_control
       self.create_hud_control = volkswagencan.create_pq_hud_control
-      # self.create_gas_control = volkswagencan.create_pq_pedal_control
-      # self.create_braking_control = volkswagencan.create_pq_braking_control
-      # self.create_awv_control = volkswagencan.create_pq_awv_control
-      # self.create_bremse8_control = volkswagencan.create_pq_bremse8_control
+     # self.create_gas_control = volkswagencan.create_pq_pedal_control
+     # self.create_braking_control = volkswagencan.create_pq_braking_control
+     # self.create_awv_control = volkswagencan.create_pq_awv_control
+     # self.create_bremse8_control = volkswagencan.create_pq_bremse8_control
       self.ldw_step = P.PQ_LDW_STEP
 
     else:
@@ -95,27 +95,82 @@ class CarController():
       idx = (frame / P.HCA_STEP) % 16
       can_sends.append(self.create_steering_control(self.packer_pt, CANBUS.pt, apply_steer,
                                                                  idx, hcaEnabled))
-    
+      can_sends.append(self.create_bremse8_control(self.packer_pt, CANBUS.cam, idx, CS.bremse8))
+
+    # **** Braking Controls ************************************************ #
+
+  #  if(frame % P.MOB_STEP == 0) and CS.CP.enableGasInterceptor:
+  #    mobEnabled = self.mobEnabled
+  #    mobPreEnable = self.mobPreEnable
+  #    # TODO make sure we use the full 8190 when calculating braking.
+  #    apply_brake = int(round(interp(actuators.accel, P.BRAKE_LOOKUP_BP, P.BRAKE_LOOKUP_V)))
+  #    stopping_wish = False
+
+  #    if enabled:
+  #      if apply_brake > 0:
+  #        if not mobEnabled:
+  #          mobEnabled = True
+  #          apply_brake = 0
+  #        elif not mobPreEnable:
+  #          mobPreEnable = True
+  #          apply_brake = 0
+  #        elif apply_brake > 1199:
+  #          apply_brake = 1200
+  #          CS.brake_warning = True
+  #        if CS.currentSpeed < 5.6:
+  #          stopping_wish = True
+  #      else:
+  #        mobPreEnable = False
+  #        mobEnabled = False
+
+  #      if CS.Stillstand:
+  #        self.haltenCounter = self.haltenCounter + 1
+
+  #       if self.haltenCounter > 10:
+  #          apply_brake = 0
+  #          mobPreEnable = False
+  #          mobEnabled = False
+  #      else:
+  #        self.haltenCounter = 0
+  #    else:
+  #      apply_brake = 0
+  #      mobPreEnable = False
+  #      mobEnabled = False
+
+  #    idx = (frame / P.MOB_STEP) % 16
+  #    self.mobPreEnable = mobPreEnable
+  #    self.mobEnabled = mobEnabled
+  #    can_sends.append(
+  #      self.create_braking_control(self.packer_pt, CANBUS.br, apply_brake, idx, mobEnabled, mobPreEnable, stopping_wish))
+
+    # **** GAS Controls ***************************************************** #
+ #   if (frame % P.GAS_STEP == 0) and CS.CP.enableGasInterceptor:
+ #     apply_gas = 0
+ #     if enabled:
+ #       apply_gas = int(round(interp(actuators.accel, P.GAS_LOOKUP_BP, P.GAS_LOOKUP_V)))
+ #       apply_gas = apply_gas + 3 * CS.out.aEgo
+
+ #     can_sends.append(self.create_gas_control(self.packer_pt, CANBUS.cam, apply_gas, frame // 2))
 
     # **** HUD Controls ***************************************************** #
-    
-  if frame % self.ldw_step == 0:
-      hca_enabled = True if enabled and not CS.out.standstill else False
 
-      # FIXME: drive this down to the MQB/PQ specific create_hud_control functions
-      if visual_alert in [VisualAlert.steerRequired, VisualAlert.ldw]:
-        hud_alert = MQB_LDW_MESSAGES["laneAssistTakeOverSilent"]
-      else:
-        hud_alert = MQB_LDW_MESSAGES["none"]
+  
 
-      can_sends.append(self.create_hud_control(self.packer_pt, CANBUS.pt, hca_enabled,
-                                                            CS.out.steeringPressed, hud_alert, left_lane_visible,
-                                                            right_lane_visible, CS.ldw_lane_warning_left,
-                                                            CS.ldw_lane_warning_right, CS.ldw_side_dlc_tlc,
-                                                            CS.ldw_dlc, CS.ldw_tlc, CS.out.standstill,
-                                                            left_lane_depart, right_lane_depart))
-      
-      # **** ACC Button Controls ********************************************** #
+    # **** AWV Controls ***************************************************** #
+
+ #   if (frame % P.AWV_STEP == 0) and CS.CP.enableGasInterceptor:
+ #     green_led = 1 if enabled else 0
+ #     orange_led = 1 if self.mobPreEnable and self.mobEnabled else 0
+ #     halten = False
+ #     if enabled:
+ #       if CS.Stillstand:
+ #         halten = True
+
+ #     idx = (frame / P.MOB_STEP) % 16
+
+ #     can_sends.append(self.create_awv_control(self.packer_pt, CANBUS.pt, idx, orange_led, green_led, halten, CS.mAWV))
+
+    # **** ACC Button Controls ********************************************** #
 
     # FIXME: this entire section is in desperate need of refactoring
 
@@ -144,4 +199,3 @@ class CarController():
           self.graMsgSentCount = 0
 
     return can_sends
-
