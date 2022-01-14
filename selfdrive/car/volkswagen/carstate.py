@@ -417,6 +417,7 @@ class CarState(CarStateBase):
       ("Bremslichtschalter", "Motor_2", 0),         # Brakes applied (brake light switch)
       ("Bremsdruck", "Bremse_5", 0),                # Brake pressure applied
       ("Vorzeichen_Bremsdruck", "Bremse_5", 0),     # Brake pressure applied sign (???)
+      ("BR5_Giergeschw", "Bremse_5", 0),            # Absolute yaw rate
       ("Fahrpedal_Rohsignal", "Motor_3", 0),        # Accelerator pedal value
       ("ESP_Passiv_getastet", "Bremse_1", 0),       # Stability control disabled
       ("GRA_Status", "Motor_2", 0),                 # ACC engagement status
