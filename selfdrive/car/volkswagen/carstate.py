@@ -6,6 +6,7 @@ from opendbc.can.parser import CANParser
 from opendbc.can.can_define import CANDefine
 from selfdrive.car.volkswagen.values import PQ_CARS, DBC_FILES, CANBUS, NetworkLocation, TransmissionType, GearShifter, BUTTON_STATES, CarControllerParams
 
+
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
@@ -19,6 +20,8 @@ class CarState(CarStateBase):
       self.hca_status_values = can_define.dv["Lenkhilfe_2"]["LH2_Sta_HCA"]
       if CP.transmissionType == TransmissionType.automatic:
         self.shifter_values = can_define.dv["Getriebe_1"]["Waehlhebelposition__Getriebe_1_"]
+      if CP.enableGasInterceptor:
+        self.openpilot_enabled = False
     else:
       can_define = CANDefine(DBC_FILES.mqb)
       self.get_can_parser = self.get_mqb_can_parser
@@ -31,17 +34,19 @@ class CarState(CarStateBase):
         self.shifter_values = can_define.dv["EV_Gearshift"]["GearPosition"]
 
   def update_mqb(self, pt_cp, cam_cp, ext_cp, trans_type):
+
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
-    ret.wheelSpeeds.fl = pt_cp.vl["ESP_19"]["ESP_VL_Radgeschw_02"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = pt_cp.vl["ESP_19"]["ESP_VR_Radgeschw_02"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = pt_cp.vl["ESP_19"]["ESP_HL_Radgeschw_02"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = pt_cp.vl["ESP_19"]["ESP_HR_Radgeschw_02"] * CV.KPH_TO_MS
+    ret.wheelSpeeds = self.get_wheel_speeds(
+      pt_cp.vl["ESP_19"]["ESP_VL_Radgeschw_02"],
+      pt_cp.vl["ESP_19"]["ESP_VR_Radgeschw_02"],
+      pt_cp.vl["ESP_19"]["ESP_HL_Radgeschw_02"],
+      pt_cp.vl["ESP_19"]["ESP_HR_Radgeschw_02"],
+    )
 
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-
-    ret.standstill = ret.vEgoRaw < 0.1
+    ret.standstill = ret.vEgo < 0.1
 
     # Update steering angle, rate, yaw rate, and driver input torque. VW send
     # the sign/direction in a separate signal so they must be recombined.
@@ -56,16 +61,12 @@ class CarState(CarStateBase):
     ret.steerError = hca_status in ["DISABLED", "FAULT"]
     ret.steerWarning = hca_status in ["INITIALIZING", "REJECTED"]
 
-    # Verify EPS readiness to accept steering commands
-    hca_status = self.hca_status_values.get(pt_cp.vl["LH_EPS_03"]["EPS_HCA_Status"])
-    ret.steerError = hca_status in ["DISABLED", "FAULT"]
-    ret.steerWarning = hca_status in ["INITIALIZING", "REJECTED"]
-
     # Update gas, brakes, and gearshift.
     ret.gas = pt_cp.vl["Motor_20"]["MO_Fahrpedalrohwert_01"] / 100.0
     ret.gasPressed = ret.gas > 0
     ret.brake = pt_cp.vl["ESP_05"]["ESP_Bremsdruck"] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
     ret.brakePressed = bool(pt_cp.vl["ESP_05"]["ESP_Fahrer_bremst"])
+    self.esp_hold_confirmation = pt_cp.vl["ESP_21"]["ESP_Haltebestaetigung"]
 
     # Update gear and/or clutch position data.
     if trans_type == TransmissionType.automatic:
@@ -94,26 +95,15 @@ class CarState(CarStateBase):
     # We use the speed preference for OP.
     self.displayMetricUnits = not pt_cp.vl["Einheiten_01"]["KBI_MFA_v_Einheit_02"]
 
-    # Consume blind-spot monitoring info/warning LED states, if available. The
-    # info signal (LED on) is enabled whenever a vehicle is detected in the
-    # driver's blind spot. The warning signal (LED flashing) is enabled if the
-    # driver shows possibly hazardous intent toward a BSM detected vehicle, by
-    # setting the turn signal in that direction, or (for cars with factory Lane
-    # Assist) approaches the lane boundary in that direction. Size of the BSM
-    # detection box is dynamic based on speed and road curvature.
-    # Refer to VW Self Study Program 890253: Volkswagen Driver Assist Systems,
-    # pages 32-35.
+    # Consume blind-spot monitoring info/warning LED states, if available.
+    # Infostufe: BSM LED on, Warnung: BSM LED flashing
     if self.CP.enableBsm:
       ret.leftBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_li"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_li"])
       ret.rightBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_re"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_re"])
 
     # Consume factory LDW data relevant for factory SWA (Lane Change Assist)
     # and capture it for forwarding to the blind spot radar controller
-    self.ldw_lane_warning_left = bool(cam_cp.vl["LDW_02"]["LDW_SW_Warnung_links"])
-    self.ldw_lane_warning_right = bool(cam_cp.vl["LDW_02"]["LDW_SW_Warnung_rechts"])
-    self.ldw_side_dlc_tlc = bool(cam_cp.vl["LDW_02"]["LDW_Seite_DLCTLC"])
-    self.ldw_dlc = cam_cp.vl["LDW_02"]["LDW_DLC"]
-    self.ldw_tlc = cam_cp.vl["LDW_02"]["LDW_TLC"]
+    self.ldw_stock_values = cam_cp.vl["LDW_02"] if self.CP.networkLocation == NetworkLocation.fwdCamera else {}
 
     # Stock FCW is considered active if the release bit for brake-jerk warning
     # is set. Stock AEB considered active if the partial braking or target
@@ -124,13 +114,13 @@ class CarState(CarStateBase):
     ret.stockAeb = bool(ext_cp.vl["ACC_10"]["ANB_Teilbremsung_Freigabe"]) or bool(ext_cp.vl["ACC_10"]["ANB_Zielbremsung_Freigabe"])
 
     # Update ACC radar status.
-    accStatus = pt_cp.vl["TSK_06"]["TSK_Status"]
-    if accStatus == 2:
+    self.tsk_status = pt_cp.vl["TSK_06"]["TSK_Status"]
+    if self.tsk_status == 2:
       # ACC okay and enabled, but not currently engaged
       ret.cruiseState.available = True
       ret.cruiseState.enabled = False
-    elif accStatus in [3, 4, 5]:
-      # ACC okay and enabled, currently engaged and regulating speed (3) or engaged with driver accelerating (4) or overrun (5)
+    elif self.tsk_status in [3, 4, 5]:
+      # ACC okay and enabled, currently regulating speed (3) or driver accel override (4) or overrun coast-down (5)
       ret.cruiseState.available = True
       ret.cruiseState.enabled = True
     else:
@@ -140,9 +130,10 @@ class CarState(CarStateBase):
 
     # Update ACC setpoint. When the setpoint is zero or there's an error, the
     # radar sends a set-speed of ~90.69 m/s / 203mph.
-    ret.cruiseState.speed = ext_cp.vl["ACC_02"]["ACC_Wunschgeschw"] * CV.KPH_TO_MS
-    if ret.cruiseState.speed > 90:
-      ret.cruiseState.speed = 0
+    if self.CP.pcmCruise:
+      ret.cruiseState.speed = ext_cp.vl["ACC_02"]["ACC_Wunschgeschw"] * CV.KPH_TO_MS
+      if ret.cruiseState.speed > 90:
+        ret.cruiseState.speed = 0
 
     # Update control button states for turn signals and ACC controls.
     self.buttonStates["accelCruise"] = bool(pt_cp.vl["GRA_ACC_01"]["GRA_Tip_Hoch"])
@@ -179,6 +170,15 @@ class CarState(CarStateBase):
     ret.wheelSpeeds.rl = pt_cp.vl["Bremse_3"]["Radgeschw__HL_4_1"] * CV.KPH_TO_MS
     ret.wheelSpeeds.rr = pt_cp.vl["Bremse_3"]["Radgeschw__HR_4_1"] * CV.KPH_TO_MS
 
+    self.bremse8  = pt_cp.vl["Bremse_8"]
+    self.bremse8['BR8_Sta_ADR_BR'] = 0
+    self.bremse8['ESP_MKB_ausloesbar'] = 1
+    self.bremse8['BR8_Sta_VerzReg'] = 0
+
+    self.Stillstand = pt_cp.vl["Bremse_5"]["BR5_Stillstand"]
+
+    self.mAWV = cam_cp.vl["mAWV"]
+
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
@@ -192,15 +192,19 @@ class CarState(CarStateBase):
     ret.steeringPressed = abs(ret.steeringTorque) > CarControllerParams.STEER_DRIVER_ALLOWANCE
     ret.yawRate = pt_cp.vl["Bremse_5"]["BR5_Giergeschw"] * (1, -1)[int(pt_cp.vl["Bremse_5"]["BR5_Vorzeichen"])] * CV.DEG_TO_RAD
 
-
     # Verify EPS readiness to accept steering commands
     hca_status = self.hca_status_values.get(pt_cp.vl["Lenkhilfe_2"]["LH2_Sta_HCA"])
     ret.steerError = hca_status in ["DISABLED", "FAULT"]
-    ret.steerWarning = hca_status in ["INITIALIZING", "REJECTED"]
+    ret.steerWarning = hca_status in ["REJECTED"]
 
-    # Update gas, brakes, and gearshift.
-    ret.gas = pt_cp.vl["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0
-    ret.gasPressed = ret.gas > 0
+    # Update gas, brakes, and gearshift
+    if not self.CP.enableGasInterceptor:
+      ret.gas = pt_cp.vl["Motor_3"]['Fahrpedal_Rohsignal'] / 100.0
+      ret.gasPressed = ret.gas > 0
+    else:
+      ret.gas = (cam_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cam_cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
+      ret.gasPressed = ret.gas > 468
+
     ret.brake = pt_cp.vl["Bremse_5"]["Bremsdruck"] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
     ret.brakePressed = bool(pt_cp.vl["Motor_2"]["Bremstestschalter"])
 
@@ -247,33 +251,29 @@ class CarState(CarStateBase):
     self.ldw_side_dlc_tlc = None
     self.ldw_dlc = None
     self.ldw_tlc = None
+
+    self.ldw_stock_values = False
     # TODO: Consume FCW/AEB data from factory radar, if present
 
     # Update ACC radar status.
-    #accStatus = ext_cp.vl["ACC_GRA_Anziege"]["ACA_StaACC"]
-    #if accStatus == 2:
-    #  # ACC okay and enabled, but not currently engaged
-    #  ret.cruiseState.available = True
-    #  ret.cruiseState.enabled = False
-    #elif accStatus in [3, 4, 5]:
-    #  # ACC okay and enabled, currently engaged and regulating speed (3) or engaged with driver accelerating (4) or overrun (5)
-    #  # Verify against Motor_2 to keep in lockstep with Panda safety
-    #  ret.cruiseState.available = True
-    #  if pt_cp.vl["Motor_2"]["GRA_Status"] in [1, 2]:
-    #    ret.cruiseState.enabled = True
-    #  else:
-    #    ret.cruiseState.enabled = False
-    #else:
-    #  # ACC okay but disabled (1), or a radar visibility or other fault/disruption (6 or 7)
-    #  ret.cruiseState.available = False
-    #  ret.cruiseState.enabled = False
-
     ret.cruiseState.available = bool(pt_cp.vl["GRA_Neu"]['GRA_Hauptschalt'])
     ret.cruiseState.enabled = True if pt_cp.vl["Motor_2"]['GRA_Status'] in [1, 2] else False
 
+    # Set override flag for openpilot enabled state.
+    if self.CP.enableGasInterceptor and pt_cp.vl["Motor_2"]['GRA_Status'] in [1, 2]:
+      self.openpilot_enabled = True
+
+    # Check if Gas or Brake pressed and cancel override
+    if self.CP.enableGasInterceptor and (ret.gasPressed or ret.brakePressed):
+      self.openpilot_enabled = False
+
+    # Override openpilot enabled if gas interceptor installed
+    if self.CP.enableGasInterceptor and self.openpilot_enabled:
+      ret.cruiseState.enabled = True
+
     # Update ACC setpoint. When the setpoint reads as 255, the driver has not
     # yet established an ACC setpoint, so treat it as zero.
-    ret.cruiseState.speed = ext_cp.vl["ACC_GRA_Anziege"]["ACA_V_Wunsch"] * CV.KPH_TO_MS
+    ret.cruiseState.speed = pt_cp.vl["Motor_2"]['Soll_Geschwindigkeit_bei_GRA_Be'] * CV.KPH_TO_MS
     if ret.cruiseState.speed > 70:  # 255 kph in m/s == no current setpoint
       ret.cruiseState.speed = 0
 
@@ -301,8 +301,12 @@ class CarState(CarStateBase):
     self.graMsgBusCounter = pt_cp.vl["GRA_Neu"]["GRA_Neu_Zaehler"]
 
     # Additional safety checks performed in CarInterface.
-    self.parkingBrakeSet = bool(pt_cp.vl["Kombi_1"]["Bremsinfo"])  # FIXME: need to include an EPB check as well
+    self.parkingBrakeSet = False #bool(pt_cp.vl["Kombi_1"]["Bremsinfo"])  # FIXME: need to include an EPB check as well
     ret.espDisabled = bool(pt_cp.vl["Bremse_1"]["ESP_Passiv_getastet"])
+
+    if self.CP.enableGasInterceptor:
+      self.currentSpeed = ret.vEgo
+      self.ABSWorking = pt_cp.vl["Bremse_8"]["BR8_Sta_ADR_BR"]
 
     return ret
 
@@ -333,11 +337,11 @@ class CarState(CarStateBase):
       ("ESP_Fahrer_bremst", "ESP_05", 0),           # Brake pedal pressed
       ("ESP_Bremsdruck", "ESP_05", 0),              # Brake pressure applied
       ("MO_Fahrpedalrohwert_01", "Motor_20", 0),    # Accelerator pedal value
-      ("MO_Kuppl_schalter", "Motor_14", 0),         # Clutch switch
       ("EPS_Lenkmoment", "LH_EPS_03", 0),           # Absolute driver torque input
       ("EPS_VZ_Lenkmoment", "LH_EPS_03", 0),        # Driver torque input sign
       ("EPS_HCA_Status", "LH_EPS_03", 3),           # EPS HCA control status
       ("ESP_Tastung_passiv", "ESP_21", 0),          # Stability control disabled
+      ("ESP_Haltebestaetigung", "ESP_21", 0),       # ESP hold confirmation
       ("KBI_MFA_v_Einheit_02", "Einheiten_01", 0),  # MPH vs KMH speed display
       ("KBI_Handbremse", "Kombi_01", 0),            # Manual handbrake applied
       ("TSK_Status", "TSK_06", 0),                  # ACC engagement status from drivetrain coordinator
@@ -366,7 +370,6 @@ class CarState(CarStateBase):
       ("ESP_02", 50),       # From J104 ABS/ESP controller
       ("GRA_ACC_01", 33),   # From J533 CAN gateway (via LIN from steering wheel controls)
       ("Gateway_72", 10),   # From J533 CAN gateway (aggregated data)
-      ("Motor_14", 10),     # From J623 Engine control module
       ("Airbag_02", 5),     # From J234 Airbag control module
       ("Kombi_01", 2),      # From J285 Instrument cluster
       ("Blinkmodi_02", 1),  # From J519 BCM (sent at 1Hz when no lights active, 50Hz when active)
@@ -385,7 +388,8 @@ class CarState(CarStateBase):
       checks += [("Motor_14", 10)]  # From J623 Engine control module
 
     if CP.networkLocation == NetworkLocation.fwdCamera:
-      # Extended CAN devices other than the camera are here on CANBUS.pt
+
+      # Radars are here on CANBUS.pt
       signals += MqbExtraSignals.fwd_radar_signals
       checks += MqbExtraSignals.fwd_radar_checks
       if CP.enableBsm:
@@ -494,6 +498,7 @@ class CarState(CarStateBase):
       ("Motor_3", 100),           # From J623 Engine control module
       ("Airbag_1", 50),           # From J234 Airbag control module
       ("Bremse_5", 50),           # From J104 ABS/ESP controller
+      ("Bremse_8", 50),           # From J??? ABS/ACC controller
       ("GRA_Neu", 50),            # From J??? steering wheel control buttons
       ("Kombi_1", 50),            # From J285 Instrument cluster
       ("Motor_2", 50),            # From J623 Engine control module
@@ -521,23 +526,24 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_mqb_cam_can_parser(CP):
+    signals = []
+    checks = []
 
-    signals = [
-      # sig_name, sig_address, default
-      ("LDW_SW_Warnung_links", "LDW_02", 0),          # Blind spot in warning mode on left side due to lane departure
-      ("LDW_SW_Warnung_rechts", "LDW_02", 0),         # Blind spot in warning mode on right side due to lane departure
-      ("LDW_Seite_DLCTLC", "LDW_02", 0),              # Direction of most likely lane departure (left or right)
-      ("LDW_DLC", "LDW_02", 0),                       # Lane departure, distance to line crossing
-      ("LDW_TLC", "LDW_02", 0),                       # Lane departure, time to line crossing
-    ]
-
-    checks = [
-      # sig_address, frequency
-      # ("LDW_02", 10)        # From R242 Driver assistance camera
-    ]
-
-    if CP.networkLocation == NetworkLocation.gateway:
-      # Extended CAN devices other than the camera are here on CANBUS.cam
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+      signals += [
+        # sig_name, sig_address, default
+        ("LDW_SW_Warnung_links", "LDW_02", 0),      # Blind spot in warning mode on left side due to lane departure
+        ("LDW_SW_Warnung_rechts", "LDW_02", 0),     # Blind spot in warning mode on right side due to lane departure
+        ("LDW_Seite_DLCTLC", "LDW_02", 0),          # Direction of most likely lane departure (left or right)
+        ("LDW_DLC", "LDW_02", 0),                   # Lane departure, distance to line crossing
+        ("LDW_TLC", "LDW_02", 0),                   # Lane departure, time to line crossing
+      ]
+      checks += [
+        # sig_address, frequency
+        ("LDW_02", 10)      # From R242 Driver assistance camera
+      ]
+    else:
+      # Radars are here on CANBUS.cam
       signals += MqbExtraSignals.fwd_radar_signals
       checks += MqbExtraSignals.fwd_radar_checks
       if CP.enableBsm:
@@ -553,17 +559,52 @@ class CarState(CarStateBase):
     signals = [
       # sig_name, sig_address, default
       ("Kombi_Lamp_Green", "LDW_1", 0),               # Just to check camera for CAN bus validity
+
+      ("AWV_Text", "mAWV", 0),
+      ("AWV_1_Freigabe", "mAWV", 0),
+      ("AWV_1_Prefill", "mAWV", 0),
+      ("AWV_1_Parameter", "mAWV", 0),
+      ("AWV_only", "mAWV", 0),
+      ("AWV_CityANB_Auspraegung", "mAWV", 0),
+      ("AWV_Halten", "mAWV", 0),
+      ("ANB_Teilbremsung_Freigabe", "mAWV", 0),
+      ("AWV_2_Status", "mAWV", 0),
+      ("AWV_2_Fehler", "mAWV", 0),
+      ("AWV_2_SU_Warnzeit", "mAWV", 0),
+      ("AWV_2_SU_Bremsruck", "mAWV", 0),
+      ("AWV_2_SU_Gong", "mAWV", 0),
+      ("AWV_2_SU_Lampe", "mAWV", 0),
+      ("AWV_2_Umfeldwarn", "mAWV", 0),
+      ("AWV_2_Freigabe", "mAWV", 0),
+      ("AWV_2_Ruckprofil", "mAWV", 0),
+      ("AWV_2_Warnton", "mAWV", 0),
+      ("AWV_2_Warnsymbol", "mAWV", 0),
+      ("AWV_Infoton", "mAWV", 0),
+      ("AWV_2_Gurtstraffer", "mAWV", 0),
+      ("AWV_Konfiguration_Menueanf", "mAWV", 0),
+      ("AWV_Konfiguration_Vorw_Menueanf", "mAWV", 0),
+      ("AWV_Konfiguration_Status", "mAWV", 0),
+      ("AWV_Konfiguration_Vorw_Status", "mAWV", 0),
+      ("AWV_2_Abstandswarnung", "mAWV", 0),
+      ("ANB_Zielbremsung_Freigabe", "mAWV", 0),
+      ("ANB_CM_Anforderung", "mAWV", 0),
+      ("ANB_Ziel_Teilbrems_Verz_Anf", "mAWV", 0),
     ]
 
     checks = [
       # sig_address, frequency
-      ("LDW_1", 20)        # From R242 Driver assistance camera
+      #("LDW_1", 20)        # From R242 Driver assistance camera
+      ("mAWV", 50)
     ]
+
+    if CP.enableGasInterceptor:
+      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
+      checks += [("GAS_SENSOR", 50)]
 
     if CP.networkLocation == NetworkLocation.gateway:
       # Extended CAN devices other than the camera are here on CANBUS.cam
-      signals += PqExtraSignals.fwd_radar_signals
-      checks += PqExtraSignals.fwd_radar_checks
+      #signals += PqExtraSignals.fwd_radar_signals
+      #checks += PqExtraSignals.fwd_radar_checks
       if CP.enableBsm:
         signals += PqExtraSignals.bsm_radar_signals
         checks += PqExtraSignals.bsm_radar_checks
