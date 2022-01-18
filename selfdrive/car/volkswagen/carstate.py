@@ -321,9 +321,9 @@ class CarState(CarStateBase):
     self.parkingBrakeSet = False #bool(pt_cp.vl["Kombi_1"]["Bremsinfo"])  # FIXME: need to include an EPB check as well
     ret.espDisabled = bool(pt_cp.vl["Bremse_1"]["ESP_Passiv_getastet"])
 
-    if self.CP.enableGasInterceptor:
-      self.currentSpeed = ret.vEgo
-      self.ABSWorking = pt_cp.vl["Bremse_8"]["BR8_Sta_ADR_BR"]
+#    if self.CP.enableGasInterceptor:
+#      self.currentSpeed = ret.vEgo
+#      self.ABSWorking = pt_cp.vl["Bremse_8"]["BR8_Sta_ADR_BR"]
 
     return ret
 
