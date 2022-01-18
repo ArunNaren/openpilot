@@ -153,7 +153,23 @@ class CarController():
  #     can_sends.append(self.create_gas_control(self.packer_pt, CANBUS.cam, apply_gas, frame // 2))
 
     # **** HUD Controls ***************************************************** #
+    
+    if frame % self.ldw_step == 0:
+      hca_enabled = True if enabled and not CS.out.standstill else False
 
+      # FIXME: drive this down to the MQB/PQ specific create_hud_control functions
+      if visual_alert in [VisualAlert.steerRequired, VisualAlert.ldw]:
+        hud_alert = MQB_LDW_MESSAGES["laneAssistTakeOverSilent"]
+      else:
+        hud_alert = MQB_LDW_MESSAGES["none"]
+
+      can_sends.append(self.create_hud_control(self.packer_pt, CANBUS.pt, hca_enabled,
+                                                            CS.out.steeringPressed, hud_alert, left_lane_visible,
+                                                            right_lane_visible, CS.ldw_lane_warning_left,
+                                                            CS.ldw_lane_warning_right, CS.ldw_side_dlc_tlc,
+                                                            CS.ldw_dlc, CS.ldw_tlc, CS.out.standstill,
+                                                            left_lane_depart, right_lane_depart))
+						
   
 
     # **** AWV Controls ***************************************************** #
