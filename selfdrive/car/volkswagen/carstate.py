@@ -340,6 +340,8 @@ class CarState(CarStateBase):
       ("ESP_VR_Radgeschw_02", "ESP_19", 0),         # ABS wheel speed, front right
       ("ESP_HL_Radgeschw_02", "ESP_19", 0),         # ABS wheel speed, rear left
       ("ESP_HR_Radgeschw_02", "ESP_19", 0),         # ABS wheel speed, rear right
+      ("Giergeschwindigkeit", "Bremse_5", 0),       # Absolute yaw rate
+      ("Vorzeichen_der_Giergeschwindigk", "Bremse_5", 0),  # Yaw rate sign
       ("ESP_Gierrate", "ESP_02", 0),                # Absolute yaw rate
       ("ESP_VZ_Gierrate", "ESP_02", 0),             # Yaw rate sign
       ("ZV_FT_offen", "Gateway_72", 0),             # Door open, driver
@@ -353,6 +355,8 @@ class CarState(CarStateBase):
       ("AB_Gurtschloss_BF", "Airbag_02", 0),        # Seatbelt status, passenger
       ("ESP_Fahrer_bremst", "ESP_05", 0),           # Brake pedal pressed
       ("ESP_Bremsdruck", "ESP_05", 0),              # Brake pressure applied
+      ("Bremsdruck", "Bremse_5", 0),                # Brake pressure applied
+      ("Vorzeichen_Bremsdruck", "Bremse_5", 0),     # Brake pressure applied sign (???)
       ("MO_Fahrpedalrohwert_01", "Motor_20", 0),    # Accelerator pedal value
       ("EPS_Lenkmoment", "LH_EPS_03", 0),           # Absolute driver torque input
       ("EPS_VZ_Lenkmoment", "LH_EPS_03", 0),        # Driver torque input sign
@@ -573,50 +577,16 @@ class CarState(CarStateBase):
   @staticmethod
   def get_pq_cam_can_parser(CP):
 
-    signals = [
-      # sig_name, sig_address, default
-      ("Kombi_Lamp_Green", "LDW_1", 0),               # Just to check camera for CAN bus validity
-
-      ("AWV_Text", "mAWV", 0),
-      ("AWV_1_Freigabe", "mAWV", 0),
-      ("AWV_1_Prefill", "mAWV", 0),
-      ("AWV_1_Parameter", "mAWV", 0),
-      ("AWV_only", "mAWV", 0),
-      ("AWV_CityANB_Auspraegung", "mAWV", 0),
-      ("AWV_Halten", "mAWV", 0),
-      ("ANB_Teilbremsung_Freigabe", "mAWV", 0),
-      ("AWV_2_Status", "mAWV", 0),
-      ("AWV_2_Fehler", "mAWV", 0),
-      ("AWV_2_SU_Warnzeit", "mAWV", 0),
-      ("AWV_2_SU_Bremsruck", "mAWV", 0),
-      ("AWV_2_SU_Gong", "mAWV", 0),
-      ("AWV_2_SU_Lampe", "mAWV", 0),
-      ("AWV_2_Umfeldwarn", "mAWV", 0),
-      ("AWV_2_Freigabe", "mAWV", 0),
-      ("AWV_2_Ruckprofil", "mAWV", 0),
-      ("AWV_2_Warnton", "mAWV", 0),
-      ("AWV_2_Warnsymbol", "mAWV", 0),
-      ("AWV_Infoton", "mAWV", 0),
-      ("AWV_2_Gurtstraffer", "mAWV", 0),
-      ("AWV_Konfiguration_Menueanf", "mAWV", 0),
-      ("AWV_Konfiguration_Vorw_Menueanf", "mAWV", 0),
-      ("AWV_Konfiguration_Status", "mAWV", 0),
-      ("AWV_Konfiguration_Vorw_Status", "mAWV", 0),
-      ("AWV_2_Abstandswarnung", "mAWV", 0),
-      ("ANB_Zielbremsung_Freigabe", "mAWV", 0),
-      ("ANB_CM_Anforderung", "mAWV", 0),
-      ("ANB_Ziel_Teilbrems_Verz_Anf", "mAWV", 0),
-    ]
+    signals = []
 
     checks = [
       # sig_address, frequency
       #("LDW_1", 20)        # From R242 Driver assistance camera
-      ("mAWV", 50)
     ]
 
-    if CP.enableGasInterceptor:
-      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
-      checks += [("GAS_SENSOR", 50)]
+#    if CP.enableGasInterceptor:
+#      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
+#      checks += [("GAS_SENSOR", 50)]
 
     if CP.networkLocation == NetworkLocation.gateway:
       # Extended CAN devices other than the camera are here on CANBUS.cam
