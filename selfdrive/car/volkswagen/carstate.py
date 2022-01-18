@@ -170,14 +170,14 @@ class CarState(CarStateBase):
     ret.wheelSpeeds.rl = pt_cp.vl["Bremse_3"]["Radgeschw__HL_4_1"] * CV.KPH_TO_MS
     ret.wheelSpeeds.rr = pt_cp.vl["Bremse_3"]["Radgeschw__HR_4_1"] * CV.KPH_TO_MS
 
-    self.bremse8  = pt_cp.vl["Bremse_8"]
-    self.bremse8['BR8_Sta_ADR_BR'] = 0
-    self.bremse8['ESP_MKB_ausloesbar'] = 1
-    self.bremse8['BR8_Sta_VerzReg'] = 0
+    #self.bremse8  = pt_cp.vl["Bremse_8"]
+    #self.bremse8['BR8_Sta_ADR_BR'] = 0
+    #self.bremse8['ESP_MKB_ausloesbar'] = 1
+    #self.bremse8['BR8_Sta_VerzReg'] = 0
 
-    self.Stillstand = pt_cp.vl["Bremse_5"]["BR5_Stillstand"]
+    #self.Stillstand = pt_cp.vl["Bremse_5"]["BR5_Stillstand"]
 
-    self.mAWV = cam_cp.vl["mAWV"]
+    #self.mAWV = cam_cp.vl["mAWV"]
 
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
@@ -190,7 +190,7 @@ class CarState(CarStateBase):
     ret.steeringRateDeg = pt_cp.vl["Lenkwinkel_1"]["Lenkradwinkel_Geschwindigkeit"] * (1, -1)[int(pt_cp.vl["Lenkwinkel_1"]["Lenkradwinkel_Geschwindigkeit_S"])]
     ret.steeringTorque = pt_cp.vl["Lenkhilfe_3"]["LH3_LM"] * (1, -1)[int(pt_cp.vl["Lenkhilfe_3"]["LH3_LMSign"])]
     ret.steeringPressed = abs(ret.steeringTorque) > CarControllerParams.STEER_DRIVER_ALLOWANCE
-    ret.yawRate = pt_cp.vl["Bremse_5"]["BR5_Giergeschw"] * (1, -1)[int(pt_cp.vl["Bremse_5"]["BR5_Vorzeichen"])] * CV.DEG_TO_RAD
+    ret.yawRate = pt_cp.vl["Bremse_5"]["Giergeschwindigkeit"] * (1, -1)[int(pt_cp.vl["Bremse_5"]["Vorzeichen_der_Giergeschwindigk"])] * CV.DEG_TO_RAD
 
     # Verify EPS readiness to accept steering commands
     hca_status = self.hca_status_values.get(pt_cp.vl["Lenkhilfe_2"]["LH2_Sta_HCA"])
