@@ -285,8 +285,8 @@ class CarState(CarStateBase):
       self.openpilot_enabled = False
 
     # Override openpilot enabled if gas interceptor installed
-    if self.CP.enableGasInterceptor and self.openpilot_enabled:
-      ret.cruiseState.enabled = True
+    #if self.CP.enableGasInterceptor and self.openpilot_enabled:
+    #  ret.cruiseState.enabled = True
 
     # Update ACC setpoint. When the setpoint reads as 255, the driver has not
     # yet established an ACC setpoint, so treat it as zero.
