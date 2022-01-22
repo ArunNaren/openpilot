@@ -50,8 +50,8 @@ class CarState(CarStateBase):
 
     # Update steering angle, rate, yaw rate, and driver input torque. VW send
     # the sign/direction in a separate signal so they must be recombined.
-    ret.steeringAngleDeg = pt_cp.vl["LWI_01"]["Lenkradwinkel"] * (1, -1)[int(pt_cp.vl["LWI_01"]["Lenkradwinkel"])]
-    ret.steeringRateDeg = pt_cp.vl["LWI_01"]["Lenkradwinkel_Geschwindigkeit"] * (1, -1)[int(pt_cp.vl["LWI_01"]["Lenkradwinkel_Geschwindigkeit"])]
+    ret.steeringAngleDeg = pt_cp.vl["Lenkradwinkel_1"]["Lenkradwinkel"] * (1, -1)[int(pt_cp.vl["Lenkradwinkel_1"]["Lenkradwinkel_Sign"])]
+    ret.steeringRateDeg = pt_cp.vl["Lenkradwinkel_1"]["Lenkradwinkel_Geschwindigkeit"] * (1, -1)[int(pt_cp.vl["Lenkradwinkel_1"]["Lenkradwinkel_Geschwindigkeit_S"])]
     ret.steeringTorque = pt_cp.vl["LH_EPS_03"]["EPS_Lenkmoment"] * (1, -1)[int(pt_cp.vl["LH_EPS_03"]["EPS_VZ_Lenkmoment"])]
     ret.steeringPressed = abs(ret.steeringTorque) > CarControllerParams.STEER_DRIVER_ALLOWANCE
     ret.yawRate = pt_cp.vl["ESP_02"]["ESP_Gierrate"] * (1, -1)[int(pt_cp.vl["ESP_02"]["ESP_VZ_Gierrate"])] * CV.DEG_TO_RAD
@@ -423,8 +423,8 @@ class CarState(CarStateBase):
   def get_pq_can_parser(CP):
     signals = [
       # sig_name, sig_address, default
-      ("Lenkradwinkel", "LWI_01", 0),               # Absolute steering angle
-      ("Lenkradwinkel_Sign", "LWI_01", 0),          # Steering angle sign
+      ("Lenkradwinkel", "Lenkradwinkel_1", 0),      # Absolute steering angle
+      ("Lenkradwinkel_Sign", "Lenkradwinkel_1", 0), # Steering angle sign
       ("LH3_LM", "Lenkhilfe_3", 0),                 # Absolute driver torque input
       ("LH3_LMSign", "Lenkhilfe_3", 0),             # Driver torque input sign
       ("LH2_Sta_HCA", "Lenkhilfe_2", 0),            # Steering rack HCA status
@@ -512,7 +512,7 @@ class CarState(CarStateBase):
 
     checks = [
       # sig_address, frequency
-      ("LWI_01", 100),            # From J500 Steering Assist with integrated sensors
+      ("Lenkradwinkel_1", 100),   # From J500 Steering Assist with integrated sensors
       ("Bremse_1", 100),          # From J104 ABS/ESP controller
       ("Bremse_3", 100),          # From J104 ABS/ESP controller
       ("Lenkhilfe_3", 100),       # From J500 Steering Assist with integrated sensors
