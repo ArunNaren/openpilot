@@ -423,8 +423,8 @@ class CarState(CarStateBase):
   def get_pq_can_parser(CP):
     signals = [
       # sig_name, sig_address, default
-      ("Lenkradwinkel", "Lenkradwinkel_1", 0),      # Absolute steering angle
-      ("Lenkradwinkel_Sign", "Lenkradwinkel_1", 0), # Steering angle sign
+      ("Lenkradwinkel", "Lenkwinkel_1", 0),                # Absolute steering angle
+      ("Lenkradwinkel_Sign", "Lenkwinkel_1", 0),            # Steering angle sign
       ("LH3_LM", "Lenkhilfe_3", 0),                 # Absolute driver torque input
       ("LH3_LMSign", "Lenkhilfe_3", 0),             # Driver torque input sign
       ("LH2_Sta_HCA", "Lenkhilfe_2", 0),            # Steering rack HCA status
@@ -512,7 +512,6 @@ class CarState(CarStateBase):
 
     checks = [
       # sig_address, frequency
-      ("Lenkradwinkel_1", 100),   # From J500 Steering Assist with integrated sensors
       ("Bremse_1", 100),          # From J104 ABS/ESP controller
       ("Bremse_3", 100),          # From J104 ABS/ESP controller
       ("Lenkhilfe_3", 100),       # From J500 Steering Assist with integrated sensors
