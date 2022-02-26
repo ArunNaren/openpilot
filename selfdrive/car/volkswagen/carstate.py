@@ -458,14 +458,6 @@ class CarState(CarStateBase):
                   ("GK1_Rueckfahr", "Gate_Komf_1", 0)]  # Reverse light from BCM
       checks += [("Motor_1", 100)]  # From J623 Engine control module
 
-    if CP.networkLocation == NetworkLocation.fwdCamera:
-      # Extended CAN devices other than the camera are here on CANBUS.pt
-      signals += PqExtraSignals.fwd_radar_signals
-      checks += PqExtraSignals.fwd_radar_checks
-      if CP.enableBsm:
-        signals += PqExtraSignals.bsm_radar_signals
-        checks += PqExtraSignals.bsm_radar_checks
-
     return CANParser(DBC_FILES.pq, signals, checks, CANBUS.pt)
 
   @staticmethod
@@ -508,18 +500,6 @@ class CarState(CarStateBase):
       # sig_address, frequency
       #("LDW_1", 20)        # From R242 Driver assistance camera
     ]
-
-    if CP.enableGasInterceptor:
-      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
-      checks += [("GAS_SENSOR", 50)]
-
-    if CP.networkLocation == NetworkLocation.gateway:
-      # Extended CAN devices other than the camera are here on CANBUS.cam
-      #signals += PqExtraSignals.fwd_radar_signals
-      #checks += PqExtraSignals.fwd_radar_checks
-      if CP.enableBsm:
-        signals += PqExtraSignals.bsm_radar_signals
-        checks += PqExtraSignals.bsm_radar_checks
 
     return CANParser(DBC_FILES.pq, signals, checks, CANBUS.cam, enforce_checks=False)
 
