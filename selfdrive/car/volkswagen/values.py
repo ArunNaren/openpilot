@@ -44,8 +44,8 @@ class CarControllerParams:
   BRAKE_LOOKUP_V = [MAX_BRAKE, 0]
 
 class CANBUS:
-  pt = 1
-  br = 0
+  pt = 0
+  br = 1
   cam = 2
 
 class DBC_FILES:
