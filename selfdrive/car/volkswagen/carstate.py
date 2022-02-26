@@ -501,7 +501,7 @@ class CarState(CarStateBase):
 
     signals = [
       # sig_name, sig_address, default
-      ("Kombi_Lamp_Green", "LDW_1", 0),               # Just to check camera for CAN bus validity
+      #("Kombi_Lamp_Green", "LDW_1", 0),               # Just to check camera for CAN bus validity
     ]
 
     checks = [
