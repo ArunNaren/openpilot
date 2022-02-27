@@ -95,12 +95,6 @@ class CarState(CarStateBase):
     # We use the speed preference for OP.
     self.displayMetricUnits = not pt_cp.vl["Einheiten_01"]["KBI_MFA_v_Einheit_02"]
 
-    # Consume blind-spot monitoring info/warning LED states, if available.
-    # Infostufe: BSM LED on, Warnung: BSM LED flashing
-    if self.CP.enableBsm:
-      ret.leftBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_li"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_li"])
-      ret.rightBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_re"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_re"])
-
     # Consume factory LDW data relevant for factory SWA (Lane Change Assist)
     # and capture it for forwarding to the blind spot radar controller
     self.ldw_stock_values = cam_cp.vl["LDW_02"] if self.CP.networkLocation == NetworkLocation.fwdCamera else {}
@@ -252,27 +246,6 @@ class CarState(CarStateBase):
     self.ldw_dlc = None
     self.ldw_tlc = None
 
-#    self.ldw_stock_values = False
-    # TODO: Consume FCW/AEB data from factory radar, if present
-
-    # Update ACC radar status.
-    accStatus = ext_cp.vl["ACC_GRA_Anziege"]["ACA_StaACC"]
-    if accStatus == 2:
-      # ACC okay and enabled, but not currently engaged
-      ret.cruiseState.available = True
-      ret.cruiseState.enabled = False
-    elif accStatus in [3, 4, 5]:
-      # ACC okay and enabled, currently engaged and regulating speed (3) or engaged with driver accelerating (4) or overrun (5)
-      # Verify against Motor_2 to keep in lockstep with Panda safety
-      ret.cruiseState.available = True
-      if pt_cp.vl["Motor_2"]["GRA_Status"] in [1, 2]:
-        ret.cruiseState.enabled = True
-      else:
-        ret.cruiseState.enabled = False
-    else:
-      # ACC okay but disabled (1), or a radar visibility or other fault/disruption (6 or 7)
-      ret.cruiseState.available = False
-      ret.cruiseState.enabled = False
     ret.cruiseState.available = bool(pt_cp.vl["GRA_Neu"]['GRA_Hauptschalt'])
     ret.cruiseState.enabled = True if pt_cp.vl["Motor_2"]['GRA_Status'] in [1, 2] else False
 
@@ -288,11 +261,7 @@ class CarState(CarStateBase):
     #if self.CP.enableGasInterceptor and self.openpilot_enabled:
     #  ret.cruiseState.enabled = True
 
-    # Update ACC setpoint. When the setpoint reads as 255, the driver has not
-    # yet established an ACC setpoint, so treat it as zero.
-    ret.cruiseState.speed = ext_cp.vl["ACC_GRA_Anziege"]["ACA_V_Wunsch"] * CV.KPH_TO_MS
-    if ret.cruiseState.speed > 70:  # 255 kph in m/s == no current setpoint
-      ret.cruiseState.speed = 0
+    ret.cruiseState.speed = 0
 
     # Update control button states for turn signals and ACC controls.
     self.buttonStates["accelCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Up_kurz"]) or bool(pt_cp.vl["GRA_Neu"]["GRA_Up_lang"])
