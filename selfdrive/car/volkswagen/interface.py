@@ -1,5 +1,6 @@
 from cereal import car
-from selfdrive.car.volkswagen.values import CAR, BUTTON_STATES, CANBUS, NetworkLocation, TransmissionType, GearShifter
+from selfdrive.config import Conversions as CV
+from selfdrive.car.volkswagen.values import CAR, PQ_CARS, BUTTON_STATES, NetworkLocation, TransmissionType, GearShifter, CANBUS
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
 
@@ -13,6 +14,9 @@ class CarInterface(CarInterfaceBase):
     self.displayMetricUnitsPrev = None
     self.buttonStatesPrev = BUTTON_STATES.copy()
 
+    # Alias Extended CAN parser to PT/CAM parser, based on detected network location
+    self.cp_ext = self.cp if CP.networkLocation == NetworkLocation.fwdCamera else self.cp_cam
+
     if CP.networkLocation == NetworkLocation.fwdCamera:
       self.ext_bus = CANBUS.pt
       self.cp_ext = self.cp
@@ -20,25 +24,57 @@ class CarInterface(CarInterfaceBase):
       self.ext_bus = CANBUS.cam
       self.cp_ext = self.cp_cam
 
+    self.pqCounter = 0
+    self.wheelGrabbed = False
+    self.pqBypassCounter = 0
+
+  @staticmethod
+  def compute_gb(accel, speed):
+    return float(accel) / 4.0
+
+
   @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=None):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
     ret.carName = "volkswagen"
     ret.radarOffCan = True
+    # Check for Comma Pedal
+    ret.enableGasInterceptor = False
 
-    if True:  # pylint: disable=using-constant-test
+    if candidate in PQ_CARS:
+      # Set global PQ35/PQ46/NMS parameters
+      ret.safetyModel = car.CarParams.SafetyModel.volkswagenPq
+      ret.enableBsm = 0x3BA in fingerprint[0]
+
+      if 0x440 in fingerprint[0]:  # Getriebe_1 detected: traditional automatic or DSG gearbox
+        ret.transmissionType = TransmissionType.automatic
+      else:  # No trans message at all, must be a true stick-shift manual
+        ret.transmissionType = TransmissionType.manual
+
+      if 0x1A0 in fingerprint[1] or 0xAE in fingerprint[1]:
+        ret.networkLocation = NetworkLocation.gateway
+      else:
+        ret.networkLocation = NetworkLocation.fwdCamera
+
+    else:
       # Set global MQB parameters
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagen)]
       ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
 
-      if 0xAD in fingerprint[0]:  # Getriebe_11
+      if 0xAD in fingerprint[0]:  # Getriebe_11 detected: traditional automatic or DSG gearbox
         ret.transmissionType = TransmissionType.automatic
-      elif 0x187 in fingerprint[0]:  # EV_Gearshift
+      elif 0x187 in fingerprint[0]:  # EV_Gearshift detected: e-Golf or similar direct-drive electric
         ret.transmissionType = TransmissionType.direct
       else:
         ret.transmissionType = TransmissionType.manual
 
-      if any(msg in fingerprint[1] for msg in (0x40, 0x86, 0xB2, 0xFD)):  # Airbag_01, LWI_01, ESP_19, ESP_21
+      if 0xfd in fingerprint[1]:  # ESP_21 present on bus 1, we're hooked up at the CAN gateway
+        ret.networkLocation = NetworkLocation.gateway
+      else:  # We're hooked up at the LKAS camera
+        ret.networkLocation = NetworkLocation.fwdCamera
+
+    # Global tuning defaults, can be overridden per-vehicle
+      if 0x86 in fingerprint[1]:  # LWI_01 seen on bus 1, we're wired to the CAN gateway
         ret.networkLocation = NetworkLocation.gateway
       else:
         ret.networkLocation = NetworkLocation.fwdCamera
@@ -65,6 +101,28 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.ATLAS_MK1:
       ret.mass = 2011 + STD_CARGO_KG
       ret.wheelbase = 2.98
+
+    elif candidate == CAR.GOLF_MK6:
+      # Averages of all 1K/5K/AJ Golf variants
+      ret.mass = 1379 + STD_CARGO_KG
+      ret.wheelbase = 2.58
+      ret.minSteerSpeed = 20 * CV.KPH_TO_MS  # May be lower depending on model-year/EPS FW
+      ret.enableGasInterceptor = True
+
+      # OP LONG parameters
+      ret.openpilotLongitudinalControl = True
+      ret.longitudinalTuning.deadzoneBP = [0.]
+      ret.longitudinalTuning.deadzoneV = [0.]
+      ret.longitudinalTuning.kpBP = [5., 35.]
+      ret.longitudinalTuning.kpV = [2.8, 1.5]
+      ret.longitudinalTuning.kiBP = [0.]
+      ret.longitudinalTuning.kiV = [0.36]
+
+      # PQ lateral tuning HCA_Status 7
+      ret.lateralTuning.pid.kpBP = [0., 14., 20.]
+      ret.lateralTuning.pid.kiBP = [0., 14., 20.]
+      ret.lateralTuning.pid.kpV = [0.12, 0.135, 0.147]
+      ret.lateralTuning.pid.kiV = [0.09, 0.10, 0.11]
 
     elif candidate == CAR.GOLF_MK7:
       ret.mass = 1397 + STD_CARGO_KG
@@ -184,6 +242,35 @@ class CarInterface(CarInterfaceBase):
         buttonEvents.append(be)
 
     events = self.create_common_events(ret, extra_gears=[GearShifter.eco, GearShifter.sport, GearShifter.manumatic])
+
+    # PQTIMEBOMB STUFF START
+    # Warning alert for the 6min timebomb found on PQ's
+    ret.stopSteering = False
+    if True:  # (self.frame % 100) == 0: # Set this to false/False if you want to turn this feature OFF!
+      if ret.cruiseState.enabled:
+        self.pqCounter += 1
+      else:
+        self.pqCounter = 0
+      if self.pqCounter >= 330 * 100:  # time in seconds until counter threshold for pqTimebombWarn alert
+        if not self.wheelGrabbed:
+          events.add(EventName.pqTimebombWarn)
+          if self.pqCounter >= 345 * 100:  # time in seconds until pqTimebombTERMINAL
+            events.add(EventName.pqTimebombTERMINAL)
+            if self.pqCounter >= 359 * 100:  # time in seconds until auto bypass
+              self.wheelGrabbed = True
+        if self.wheelGrabbed or ret.steeringPressed:
+          self.wheelGrabbed = True
+          ret.stopSteering = True
+          self.pqBypassCounter += 1
+          if self.pqBypassCounter >= 1.05 * 100:  # time alloted for bypass
+            self.wheelGrabbed = False
+            self.pqCounter = 0
+            self.pqBypassCounter = 0
+            events.add(EventName.pqTimebombBypassed)
+          else:
+            events.add(EventName.pqTimebombBypassing)
+
+    # PQTIMEBOMB STUFF END
 
     # Vehicle health and operation safety checks
     if self.CS.parkingBrakeSet:
