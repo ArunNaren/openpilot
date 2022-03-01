@@ -188,8 +188,31 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send) {
 }
 
 static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+  int addr = GET_ADDR(to_fwd);
+  int bus_fwd = -1;
 
-  return -1;
+  switch (bus_num) {
+    case 0:
+      // Forward all traffic from the Extended CAN onward
+      bus_fwd = 2;
+      break;
+    case 2:
+      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
+        // OP takes control of the Heading Control Assist and Lane Departure Warning messages from the camera
+        bus_fwd = -1;
+      } else {
+        // Forward all remaining traffic from Extended CAN devices to J533 gateway
+        bus_fwd = 0;
+      }
+      break;
+    default:
+      // No other buses should be in use; fallback to do-not-forward
+      bus_fwd = -1;
+      break;
+  }
+  // No forwarding
+  bus_fwd = -1;
+  return bus_fwd;
 }
 
 const safety_hooks volkswagen_pq_hooks = {
