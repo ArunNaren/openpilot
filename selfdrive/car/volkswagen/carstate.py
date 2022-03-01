@@ -390,47 +390,47 @@ class CarState(CarStateBase):
   @staticmethod
   def get_pq_can_parser(CP):
     signals = [
-      # sig_name, sig_address, default
-      ("LH3_BLW", "Lenkhilfe_3", 0),                # Absolute steering angle
-      ("LH3_BLWSign", "Lenkhilfe_3", 0),            # Steering angle sign
-      ("LH3_LM", "Lenkhilfe_3", 0),                 # Absolute driver torque input
-      ("LH3_LMSign", "Lenkhilfe_3", 0),             # Driver torque input sign
-      ("LH2_Sta_HCA", "Lenkhilfe_2", 0),            # Steering rack HCA status
-      ("Lenkradwinkel_Geschwindigkeit", "Lenkwinkel_1", 0),  # Absolute steering rate
-      ("Lenkradwinkel_Geschwindigkeit_S", "Lenkwinkel_1", 0),  # Steering rate sign
-      ("Radgeschw__VL_4_1", "Bremse_3", 0),         # ABS wheel speed, front left
-      ("Radgeschw__VR_4_1", "Bremse_3", 0),         # ABS wheel speed, front right
-      ("Radgeschw__HL_4_1", "Bremse_3", 0),         # ABS wheel speed, rear left
-      ("Radgeschw__HR_4_1", "Bremse_3", 0),         # ABS wheel speed, rear right
-      ("Giergeschwindigkeit", "Bremse_5", 0),       # Absolute yaw rate
-      ("Vorzeichen_der_Giergeschwindigk", "Bremse_5", 0),  # Yaw rate sign
-      ("Gurtschalter_Fahrer", "Airbag_1", 0),       # Seatbelt status, driver
-      ("Gurtschalter_Beifahrer", "Airbag_1", 0),    # Seatbelt status, passenger
-      ("Bremstestschalter", "Motor_2", 0),          # Brake pedal pressed (brake light test switch)
-      ("Bremslichtschalter", "Motor_2", 0),         # Brakes applied (brake light switch)
-      ("Soll_Geschwindigkeit_bei_GRA_Be", "Motor_2", 0), #CruiseControl Setspeed
-      ("Bremsdruck", "Bremse_5", 0),                # Brake pressure applied
-      ("Vorzeichen_Bremsdruck", "Bremse_5", 0),     # Brake pressure applied sign (???)
-      ("Fahrpedal_Rohsignal", "Motor_3", 0),        # Accelerator pedal value
-      ("ESP_Passiv_getastet", "Bremse_1", 0),       # Stability control disabled
-      ("GRA_Status", "Motor_2", 0),                 # ACC engagement status
-      ("GK1_Fa_Tuerkont", "Gate_Komf_1", 0),        # Door open, driver
+      # sig_name, sig_address
+      ("LH3_BLW", "Lenkhilfe_3"),                # Absolute steering angle
+      ("LH3_BLWSign", "Lenkhilfe_3"),            # Steering angle sign
+      ("LH3_LM", "Lenkhilfe_3"),                 # Absolute driver torque input
+      ("LH3_LMSign", "Lenkhilfe_3"),             # Driver torque input sign
+      ("LH2_Sta_HCA", "Lenkhilfe_2"),            # Steering rack HCA status
+      ("Lenkradwinkel_Geschwindigkeit", "Lenkwinkel_1"),  # Absolute steering rate
+      ("Lenkradwinkel_Geschwindigkeit_S", "Lenkwinkel_1"),  # Steering rate sign
+      ("Radgeschw__VL_4_1", "Bremse_3"),         # ABS wheel speed, front left
+      ("Radgeschw__VR_4_1", "Bremse_3"),         # ABS wheel speed, front right
+      ("Radgeschw__HL_4_1", "Bremse_3"),         # ABS wheel speed, rear left
+      ("Radgeschw__HR_4_1", "Bremse_3"),         # ABS wheel speed, rear right
+      ("Giergeschwindigkeit", "Bremse_5"),       # Absolute yaw rate
+      ("Vorzeichen_der_Giergeschwindigk", "Bremse_5"),  # Yaw rate sign
+      ("Gurtschalter_Fahrer", "Airbag_1"),       # Seatbelt status, driver
+      ("Gurtschalter_Beifahrer", "Airbag_1"),    # Seatbelt status, passenger
+      ("Bremstestschalter", "Motor_2"),          # Brake pedal pressed (brake light test switch)
+      ("Bremslichtschalter", "Motor_2"),         # Brakes applied (brake light switch)
+      ("Soll_Geschwindigkeit_bei_GRA_Be", "Motor_2"), #CruiseControl Setspeed
+      ("Bremsdruck", "Bremse_5"),                # Brake pressure applied
+      ("Vorzeichen_Bremsdruck", "Bremse_5"),     # Brake pressure applied sign (???)
+      ("Fahrpedal_Rohsignal", "Motor_3"),        # Accelerator pedal value
+      ("ESP_Passiv_getastet", "Bremse_1"),       # Stability control disabled
+      ("GRA_Status", "Motor_2"),                 # ACC engagement status
+      ("GK1_Fa_Tuerkont", "Gate_Komf_1"),        # Door open, driver
       # TODO: locate passenger and rear door states
-      ("GK1_Blinker_li", "Gate_Komf_1", 0),         # Left turn signal on
-      ("GK1_Blinker_re", "Gate_Komf_1", 0),         # Right turn signal on
-      ("Bremsinfo", "Kombi_1", 0),                  # Manual handbrake applied
-      ("GRA_Hauptschalt", "GRA_Neu", 0),            # ACC button, on/off
-      ("GRA_Abbrechen", "GRA_Neu", 0),              # ACC button, cancel
-      ("GRA_Neu_Setzen", "GRA_Neu", 0),             # ACC button, set
-      ("GRA_Up_lang", "GRA_Neu", 0),                # ACC button, increase or accel, long press
-      ("GRA_Down_lang", "GRA_Neu", 0),              # ACC button, decrease or decel, long press
-      ("GRA_Up_kurz", "GRA_Neu", 0),                # ACC button, increase or accel, short press
-      ("GRA_Down_kurz", "GRA_Neu", 0),              # ACC button, decrease or decel, short press
-      ("GRA_Recall", "GRA_Neu", 0),                 # ACC button, resume
-      ("GRA_Zeitluecke", "GRA_Neu", 0),             # ACC button, time gap adj
-      ("GRA_Neu_Zaehler", "GRA_Neu", 0),            # ACC button, time gap adj
-      ("GRA_Sender", "GRA_Neu", 0),                 # GRA Sender Coding
-      ("BR8_Sta_ADR_BR", "Bremse_8", 0),            # ABS Pump actively braking for ACC
+      ("GK1_Blinker_li", "Gate_Komf_1"),         # Left turn signal on
+      ("GK1_Blinker_re", "Gate_Komf_1"),         # Right turn signal on
+      ("Bremsinfo", "Kombi_1"),                  # Manual handbrake applied
+      ("GRA_Hauptschalt", "GRA_Neu"),            # ACC button, on/off
+      ("GRA_Abbrechen", "GRA_Neu"),              # ACC button, cancel
+      ("GRA_Neu_Setzen", "GRA_Neu"),             # ACC button, set
+      ("GRA_Up_lang", "GRA_Neu"),                # ACC button, increase or accel, long press
+      ("GRA_Down_lang", "GRA_Neu"),              # ACC button, decrease or decel, long press
+      ("GRA_Up_kurz", "GRA_Neu"),                # ACC button, increase or accel, short press
+      ("GRA_Down_kurz", "GRA_Neu"),              # ACC button, decrease or decel, short press
+      ("GRA_Recall", "GRA_Neu"),                 # ACC button, resume
+      ("GRA_Zeitluecke", "GRA_Neu"),             # ACC button, time gap adj
+      ("GRA_Neu_Zaehler", "GRA_Neu"),            # ACC button, time gap adj
+      ("GRA_Sender", "GRA_Neu"),                 # GRA Sender Coding
+      ("BR8_Sta_ADR_BR", "Bremse_8"),            # ABS Pump actively braking for ACC
     ]
 
     checks = [
@@ -451,15 +451,15 @@ class CarState(CarStateBase):
     ]
 
     if CP.enableGasInterceptor:
-      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR", 0), ("INTERCEPTOR_GAS2", "GAS_SENSOR", 0)]
+      signals += [("INTERCEPTOR_GAS", "GAS_SENSOR"), ("INTERCEPTOR_GAS2", "GAS_SENSOR")]
       checks += [("GAS_SENSOR", 50)]
 
     if CP.transmissionType == TransmissionType.automatic:
-      signals += [("Waehlhebelposition__Getriebe_1_", "Getriebe_1", 0)]  # Auto trans gear selector position
+      signals += [("Waehlhebelposition__Getriebe_1_", "Getriebe_1")]  # Auto trans gear selector position
       checks += [("Getriebe_1", 100)]  # From J743 Auto transmission control module
     elif CP.transmissionType == TransmissionType.manual:
-      signals += [("Kupplungsschalter", "Motor_1", 0),  # Clutch switch
-                  ("GK1_Rueckfahr", "Gate_Komf_1", 0)]  # Reverse light from BCM
+      signals += [("Kupplungsschalter", "Motor_1"),  # Clutch switch
+                  ("GK1_Rueckfahr", "Gate_Komf_1")]  # Reverse light from BCM
       checks += [("Motor_1", 100)]  # From J623 Engine control module
 
     if CP.networkLocation == NetworkLocation.fwdCamera:
@@ -477,11 +477,11 @@ class CarState(CarStateBase):
 
     signals = [
       # sig_name, sig_address, default
-      ("LDW_SW_Warnung_links", "LDW_02", 0),          # Blind spot in warning mode on left side due to lane departure
-      ("LDW_SW_Warnung_rechts", "LDW_02", 0),         # Blind spot in warning mode on right side due to lane departure
-      ("LDW_Seite_DLCTLC", "LDW_02", 0),              # Direction of most likely lane departure (left or right)
-      ("LDW_DLC", "LDW_02", 0),                       # Lane departure, distance to line crossing
-      ("LDW_TLC", "LDW_02", 0),                       # Lane departure, time to line crossing
+      ("LDW_SW_Warnung_links", "LDW_02"),          # Blind spot in warning mode on left side due to lane departure
+      ("LDW_SW_Warnung_rechts", "LDW_02"),         # Blind spot in warning mode on right side due to lane departure
+      ("LDW_Seite_DLCTLC", "LDW_02"),              # Direction of most likely lane departure (left or right)
+      ("LDW_DLC", "LDW_02"),                       # Lane departure, distance to line crossing
+      ("LDW_TLC", "LDW_02"),                       # Lane departure, time to line crossing
     ]
 
     checks = [
@@ -538,17 +538,17 @@ class MqbExtraSignals:
 class PqExtraSignals:
   # Additional signal and message lists for optional or bus-portable controllers
   fwd_radar_signals = [
-    ("ACA_StaACC", "ACC_GRA_Anziege", 0),           # ACC drivetrain coordinator status
-    ("ACA_V_Wunsch", "ACC_GRA_Anziege", 0),         # ACC set speed
+    ("ACA_StaACC", "ACC_GRA_Anziege"),           # ACC drivetrain coordinator status
+    ("ACA_V_Wunsch", "ACC_GRA_Anziege"),         # ACC set speed
   ]
   fwd_radar_checks = [
     ("ACC_GRA_Anziege", 25),                        # From J428 ACC radar control module
   ]
   bsm_radar_signals = [
-    ("SWA_Infostufe_SWA_li", "SWA_1", 0),           # Blind spot object info, left
-    ("SWA_Warnung_SWA_li", "SWA_1", 0),             # Blind spot object warning, left
-    ("SWA_Infostufe_SWA_re", "SWA_1", 0),           # Blind spot object info, right
-    ("SWA_Warnung_SWA_re", "SWA_1", 0),             # Blind spot object warning, right
+    ("SWA_Infostufe_SWA_li", "SWA_1"),           # Blind spot object info, left
+    ("SWA_Warnung_SWA_li", "SWA_1"),             # Blind spot object warning, left
+    ("SWA_Infostufe_SWA_re", "SWA_1"),           # Blind spot object info, right
+    ("SWA_Warnung_SWA_re", "SWA_1"),             # Blind spot object warning, right
   ]
   bsm_radar_checks = [
     ("SWA_1", 20),                                  # From J1086 Lane Change Assist
