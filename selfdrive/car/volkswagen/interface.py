@@ -104,10 +104,10 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 1379 + STD_CARGO_KG
       ret.wheelbase = 2.58
       ret.minSteerSpeed = 20 * CV.KPH_TO_MS  # May be lower depending on model-year/EPS FW
-      ret.enableGasInterceptor = True
+      ret.enableGasInterceptor = False
 
       # OP LONG parameters
-      ret.openpilotLongitudinalControl = True
+      ret.openpilotLongitudinalControl = False
       ret.longitudinalTuning.deadzoneBP = [0.]
       ret.longitudinalTuning.deadzoneV = [0.]
       ret.longitudinalTuning.kpBP = [5., 35.]
