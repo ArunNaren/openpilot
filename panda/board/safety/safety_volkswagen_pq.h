@@ -15,14 +15,14 @@ const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 #define MSG_LDW_1       0x5BE   // TX by OP, Lane line recognition and text alerts
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 1, 5}, {MSG_GRA_NEU, 1, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 1, 8}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
-  {.msg = {{MSG_LENKHILFE_3, 0, 6, .check_checksum = true,  .max_counter = 15U, .expected_timestep = 10000U}, { 0 }, { 0 }}},
-  {.msg = {{MSG_MOTOR_2, 0, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 20000U}, { 0 }, { 0 }}},
-  {.msg = {{MSG_MOTOR_3, 0, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 10000U}, { 0 }, { 0 }}},
-  {.msg = {{MSG_BREMSE_1, 0, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 10000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_LENKHILFE_3, 1, 6, .check_checksum = true,  .max_counter = 15U, .expected_timestep = 10000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_MOTOR_2, 1, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 20000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_MOTOR_3, 1, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 10000U}, { 0 }, { 0 }}},
+  {.msg = {{MSG_BREMSE_3, 1, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 10000U}, { 0 }, { 0 }}},
 };
 #define VOLKSWAGEN_PQ_ADDR_CHECKS_LEN (sizeof(volkswagen_pq_addr_checks) / sizeof(volkswagen_pq_addr_checks[0]))
 addr_checks volkswagen_pq_rx_checks = {volkswagen_pq_addr_checks, VOLKSWAGEN_PQ_ADDR_CHECKS_LEN};
@@ -62,7 +62,7 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
   bool valid = addr_safety_check(to_push, &volkswagen_pq_rx_checks,
                                 volkswagen_pq_get_checksum, volkswagen_pq_compute_checksum, volkswagen_pq_get_counter);
 
-  if (valid && (GET_BUS(to_push) == 0U)) {
+  if (valid && (GET_BUS(to_push) == 1U)) {
     int addr = GET_ADDR(to_push);
 
     // Update in-motion state from speed value.
@@ -188,30 +188,8 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send) {
 }
 
 static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
-  int addr = GET_ADDR(to_fwd);
-  int bus_fwd = -1;
 
-  switch (bus_num) {
-    case 0:
-      // Forward all traffic from the Extended CAN onward
-      bus_fwd = 2;
-      break;
-    case 2:
-      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
-        // OP takes control of the Heading Control Assist and Lane Departure Warning messages from the camera
-        bus_fwd = -1;
-      } else {
-        // Forward all remaining traffic from Extended CAN devices to J533 gateway
-        bus_fwd = 0;
-      }
-      break;
-    default:
-      // No other buses should be in use; fallback to do-not-forward
-      bus_fwd = -1;
-      break;
-  }
-
-  return bus_fwd;
+  return -1;
 }
 
 const safety_hooks volkswagen_pq_hooks = {
