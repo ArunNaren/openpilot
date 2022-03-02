@@ -22,7 +22,6 @@ class CarState(CarStateBase):
       self.get_can_parser = self.get_pq_can_parser
       self.get_cam_can_parser = self.get_pq_cam_can_parser
       self.update = self.update_pq
-      self.hca_status_values = can_define.dv["Lenkhilfe_2"]["LH2_Sta_HCA"]
       if CP.transmissionType == TransmissionType.automatic:
         self.shifter_values = can_define.dv["Getriebe_1"]["Waehlhebelposition__Getriebe_1_"]
       if CP.enableGasInterceptor:
@@ -189,9 +188,8 @@ class CarState(CarStateBase):
     ret.yawRate = pt_cp.vl["Bremse_5"]["Giergeschwindigkeit"] * (1, -1)[int(pt_cp.vl["Bremse_5"]["Vorzeichen_der_Giergeschwindigk"])] * CV.DEG_TO_RAD
 
     # Verify EPS readiness to accept steering commands
-    hca_status = self.hca_status_values.get(pt_cp.vl["Lenkhilfe_2"]["LH2_Sta_HCA"])
-    ret.steerError = hca_status in ["disabled", "fault"]
-    ret.steerWarning = hca_status in ["rejected"]
+    ret.steerError = False
+    ret.steerWarning = False
 
     # Update gas, brakes, and gearshift
     if not self.CP.enableGasInterceptor:
