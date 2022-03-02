@@ -40,9 +40,9 @@ class CarInterface(CarInterfaceBase):
     if candidate in PQ_CARS:
       # Set global PQ35/PQ46/NMS parameters
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagenPq)]
-      ret.enableBsm = 0x3BA in fingerprint[0]
+      ret.enableBsm = 0x3BA in fingerprint[1]
 
-      if 0x440 in fingerprint[0]:  # Getriebe_1 detected: traditional automatic or DSG gearbox
+      if 0x440 in fingerprint[1]:  # Getriebe_1 detected: traditional automatic or DSG gearbox
         ret.transmissionType = TransmissionType.automatic
       else:  # No trans message at all, must be a true stick-shift manual
         ret.transmissionType = TransmissionType.manual
@@ -103,10 +103,10 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 1379 + STD_CARGO_KG
       ret.wheelbase = 2.58
       ret.minSteerSpeed = 20 * CV.KPH_TO_MS  # May be lower depending on model-year/EPS FW
-      ret.enableGasInterceptor = True
+      ret.enableGasInterceptor = False
 
       # OP LONG parameters
-      ret.openpilotLongitudinalControl = True
+      ret.openpilotLongitudinalControl = False
       ret.longitudinalTuning.deadzoneBP = [0.]
       ret.longitudinalTuning.deadzoneV = [0.]
       ret.longitudinalTuning.kpBP = [5., 35.]
