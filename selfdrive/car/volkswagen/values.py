@@ -11,8 +11,12 @@ GearShifter = car.CarState.GearShifter
 
 class CarControllerParams:
   HCA_STEP = 2                   # HCA_01 message frequency 50Hz
-  LDW_STEP = 10                  # LDW_02 message frequency 10Hz
+  MQB_LDW_STEP = 10              # LDW_02 message frequency 10Hz on MQB
+  PQ_LDW_STEP = 5                # LDW_1 message frequency 20Hz on PQ35/PQ46/NMS
   GRA_ACC_STEP = 3               # GRA_ACC_01 message frequency 33Hz
+  MOB_STEP = 2                   # PQ_MOB message frequency 50Hz
+  GAS_STEP = 2                   # GAS_COMMAND message frequency 50Hz
+  AWV_STEP = 2                   # ACC LED Control
 
   GRA_VBP_STEP = 100             # Send ACC virtual button presses once a second
   GRA_VBP_COUNT = 16             # Send VBP messages for ~0.5s (GRA_ACC_STEP * 16)
@@ -27,11 +31,23 @@ class CarControllerParams:
   STEER_DRIVER_MULTIPLIER = 3    # weight driver torque heavily
   STEER_DRIVER_FACTOR = 1        # from dbc
 
+
+  # pedal lookups, only for Volt
+  MAX_GAS = 600  # Only a safety limit
+  ZERO_GAS = 227
+  MAX_BRAKE = 350  # Should be around 3.5m/s^2, including regen
+  GAS_LOOKUP_BP = [0., 2.0]
+  GAS_LOOKUP_V = [ZERO_GAS, MAX_GAS]
+  BRAKE_LOOKUP_BP = [-4., 0.]
+  BRAKE_LOOKUP_V = [MAX_BRAKE, 0]
+
 class CANBUS:
-  pt = 0
+  pt = 1
+  br = 0
   cam = 2
 
 class DBC_FILES:
+  pq = "vw_golf_mk4"  # Used for all cars with PQ25/PQ35/PQ46/NMS-style CAN messaging
   mqb = "vw_mqb_2010"  # Used for all cars with MQB-style CAN messaging
 
 DBC = defaultdict(lambda: dbc_dict(DBC_FILES.mqb, None))  # type: Dict[str, Dict[str, str]]
@@ -65,6 +81,7 @@ MQB_LDW_MESSAGES = {
 class CAR:
   ARTEON_MK1 = "VOLKSWAGEN ARTEON 1ST GEN"          # Chassis AN, Mk1 VW Arteon and variants
   ATLAS_MK1 = "VOLKSWAGEN ATLAS 1ST GEN"            # Chassis CA, Mk1 VW Atlas and Atlas Cross Sport
+  GOLF_MK6 = "VOLKSWAGEN GOLF 6TH GEN"              # Chassis 5G/AU/BA/BE, Mk6 VW Golf and variants
   GOLF_MK7 = "VOLKSWAGEN GOLF 7TH GEN"              # Chassis 5G/AU/BA/BE, Mk7 VW Golf and variants
   JETTA_MK7 = "VOLKSWAGEN JETTA 7TH GEN"            # Chassis BU, Mk7 VW Jetta
   PASSAT_MK8 = "VOLKSWAGEN PASSAT 8TH GEN"          # Chassis 3G, Mk8 VW Passat and variants
@@ -86,6 +103,16 @@ class CAR:
   SKODA_SCALA_MK1 = "SKODA SCALA 1ST GEN"           # Chassis NW, Mk1 Skoda Scala and Skoda Kamiq
   SKODA_SUPERB_MK3 = "SKODA SUPERB 3RD GEN"         # Chassis 3V/NP, Mk3 Skoda Superb and variants
   SKODA_OCTAVIA_MK3 = "SKODA OCTAVIA 3RD GEN"       # Chassis NE, Mk3 Skoda Octavia and variants
+
+# All PQ35/PQ46/NMS platform CARs should be on this list
+
+PQ_CARS = [CAR.GOLF_MK6]
+
+FINGERPRINTS = {
+  CAR.GOLF_MK6: [
+    {80: 4, 194: 8, 208: 6, 416: 8, 640: 8, 644: 6, 648: 8, 672: 8, 800: 8, 896: 8, 906: 4, 912: 8, 914: 8, 919: 8, 928: 8, 976: 6, 978: 7, 1056: 8, 1152: 8, 1160: 8, 1164: 8, 1184: 8, 1192: 8, 1306: 8, 1312: 8, 1344: 8, 1360: 8, 1386: 8, 1392: 5, 1394: 1, 1408: 8, 1416: 8, 1420: 8, 1423: 8, 1440: 8, 1488: 8, 1490: 8, 1500: 8, 1504: 8, 1654: 2, 1824: 7, 1827: 7, 2000: 8},
+  ],
+}
 
 # All supported cars should return FW from the engine, srs, eps, and fwdRadar. Cars
 # with a manual trans won't return transmission firmware, but all other cars will.
