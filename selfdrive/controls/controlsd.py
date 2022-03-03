@@ -89,10 +89,6 @@ class Controls:
     if TICI:
       self.log_sock = messaging.sub_sock('androidLog')
 
-    # wait for one pandaState and one CAN packet
-    print("Waiting for CAN messages...")
-    get_one_can(self.can_sock)
-
     self.CI, self.CP = get_car(self.can_sock, self.pm.sock['sendcan'])
 
     # read params
