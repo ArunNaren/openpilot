@@ -9,11 +9,6 @@ from selfdrive.car.volkswagen.values import PQ_CARS, DBC_FILES, CANBUS, NetworkL
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
-    can_define = CANDefine(DBC_FILES.mqb)
-    if CP.transmissionType == TransmissionType.automatic:
-      self.shifter_values = can_define.dv["Getriebe_11"]["GE_Fahrstufe"]
-    elif CP.transmissionType == TransmissionType.direct:
-      self.shifter_values = can_define.dv["EV_Gearshift"]["GearPosition"]
     self.buttonStates = BUTTON_STATES.copy()
 
     if CP.carFingerprint in PQ_CARS:
@@ -166,7 +161,7 @@ class CarState(CarStateBase):
     return ret
 
   def update_pq(self, pt_cp, cam_cp, ext_cp, trans_type):
-    
+
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
     ret.wheelSpeeds = self.get_wheel_speeds(
