@@ -14,7 +14,6 @@ class CarState(CarStateBase):
       self.shifter_values = can_define.dv["Getriebe_11"]["GE_Fahrstufe"]
     elif CP.transmissionType == TransmissionType.direct:
       self.shifter_values = can_define.dv["EV_Gearshift"]["GearPosition"]
-    self.hca_status_values = can_define.dv["LH_EPS_03"]["EPS_HCA_Status"]
     self.buttonStates = BUTTON_STATES.copy()
 
     if CP.carFingerprint in PQ_CARS:
@@ -167,17 +166,19 @@ class CarState(CarStateBase):
     return ret
 
   def update_pq(self, pt_cp, cam_cp, ext_cp, trans_type):
+    
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
-    ret.wheelSpeeds.fl = pt_cp.vl["Bremse_3"]["Radgeschw__VL_4_1"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = pt_cp.vl["Bremse_3"]["Radgeschw__VR_4_1"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = pt_cp.vl["Bremse_3"]["Radgeschw__HL_4_1"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = pt_cp.vl["Bremse_3"]["Radgeschw__HR_4_1"] * CV.KPH_TO_MS
+    ret.wheelSpeeds = self.get_wheel_speeds(
+      pt_cp.vl["Bremse_3"]["Radgeschw__VL_4_1"],
+      pt_cp.vl["Bremse_3"]["Radgeschw__VR_4_1"],
+      pt_cp.vl["Bremse_3"]["Radgeschw__HL_4_1"],
+      pt_cp.vl["Bremse_3"]["Radgeschw__HR_4_1"],
+    )
 
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-
-    ret.standstill = ret.vEgoRaw < 0.1
+    ret.standstill = ret.vEgo < 0.1
 
     # Update steering angle, rate, yaw rate, and driver input torque. VW send
     # the sign/direction in a separate signal so they must be recombined.
@@ -188,8 +189,8 @@ class CarState(CarStateBase):
     ret.yawRate = pt_cp.vl["Bremse_5"]["Giergeschwindigkeit"] * (1, -1)[int(pt_cp.vl["Bremse_5"]["Vorzeichen_der_Giergeschwindigk"])] * CV.DEG_TO_RAD
 
     # Verify EPS readiness to accept steering commands
-    ret.steerError = False
-    ret.steerWarning = False
+    ret.steerFaultPermanent = False
+    ret.steerFaultTemporary = False
 
     # Update gas, brakes, and gearshift
     if not self.CP.enableGasInterceptor:
