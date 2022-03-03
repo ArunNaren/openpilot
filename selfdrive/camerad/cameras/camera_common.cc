@@ -223,7 +223,7 @@ void fill_frame_data(cereal::FrameData::Builder &framed, const FrameMetadata &fr
   framed.setLensPos(frame_data.lens_pos);
   framed.setLensErr(frame_data.lens_err);
   framed.setLensTruePos(frame_data.lens_true_pos);
-  framed.processingTime(frame_data.processing_time);
+  framed.setProcessingTime(frame_data.processing_time);
 }
 
 kj::Array<uint8_t> get_frame_image(const CameraBuf *b) {
