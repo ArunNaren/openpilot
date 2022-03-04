@@ -236,10 +236,37 @@ class CarState(CarStateBase):
     # Update ACC radar status.
     ret.cruiseState.available = bool(pt_cp.vl["GRA_Neu"]['GRA_Hauptschalt'])
     ret.cruiseState.enabled = True if pt_cp.vl["Motor_2"]['GRA_Status'] in [1, 2] else False
+    ret.leftBlinker = bool(pt_cp.vl["Gate_Komf_1"]["GK1_Blinker_li"])
+    ret.rightBlinker = bool(pt_cp.vl["Gate_Komf_1"]["GK1_Blinker_re"])
+    # Update ACC setpoint. When the setpoint reads as 255, the driver has not
+    ret.cruiseState.speed = pt_cp.vl["Motor_2"]['Soll_Geschwindigkeit_bei_GRA_Be'] * CV.KPH_TO_MS
 
     # Set override flag for openpilot enabled state.
     if self.CP.enableGasInterceptor and pt_cp.vl["Motor_2"]['GRA_Status'] in [1, 2]:
       self.openpilot_enabled = True
+    
+    if CP.enableGasInterceptor:
+
+      # Update control button states for turn signals and ACC controls.
+
+      self.buttonStates["accelCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Up_kurz"]) or bool(pt_cp.vl["GRA_Neu"]["GRA_Up_lang"])
+      self.buttonStates["decelCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Down_kurz"]) or bool(pt_cp.vl["GRA_Neu"]["GRA_Down_lang"])
+      self.buttonStates["cancel"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Abbrechen"])
+      self.buttonStates["setCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Neu_Setzen"])
+      self.buttonStates["resumeCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Recall"])
+      self.buttonStates["gapAdjustCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Zeitluecke"])
+
+      if ret.cruiseState.speed > 70:  # 255 kph in m/s == no current setpoint
+        ret.cruiseState.speed = 0
+      # Read ACC hardware button type configuration info that has to pass thru
+      # to the radar. Ends up being different for steering wheel buttons vs
+      # third stalk type controls.
+      self.graHauptschalter = pt_cp.vl["GRA_Neu"]["GRA_Hauptschalt"]
+      self.graSenderCoding = pt_cp.vl["GRA_Neu"]["GRA_Sender"]
+      self.graTypHauptschalter = False
+      self.graButtonTypeInfo = False
+      self.graTipStufe2 = False
+      self.graMsgBusCounter = pt_cp.vl["GRA_Neu"]["GRA_Neu_Zaehler"]
 
     # Check if Gas or Brake pressed and cancel override
     if self.CP.enableGasInterceptor and (ret.gasPressed or ret.brakePressed):
@@ -249,34 +276,8 @@ class CarState(CarStateBase):
     if self.CP.enableGasInterceptor and self.openpilot_enabled:
       ret.cruiseState.enabled = True
 
-    # Update ACC setpoint. When the setpoint reads as 255, the driver has not
-    # yet established an ACC setpoint, so treat it as zero.
-    ret.cruiseState.speed = pt_cp.vl["Motor_2"]['Soll_Geschwindigkeit_bei_GRA_Be'] * CV.KPH_TO_MS
-    if ret.cruiseState.speed > 70:  # 255 kph in m/s == no current setpoint
-      ret.cruiseState.speed = 0
-
-    # Update control button states for turn signals and ACC controls.
-    self.buttonStates["accelCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Up_kurz"]) or bool(pt_cp.vl["GRA_Neu"]["GRA_Up_lang"])
-    self.buttonStates["decelCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Down_kurz"]) or bool(pt_cp.vl["GRA_Neu"]["GRA_Down_lang"])
-    self.buttonStates["cancel"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Abbrechen"])
-    self.buttonStates["setCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Neu_Setzen"])
-    self.buttonStates["resumeCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Recall"])
-    self.buttonStates["gapAdjustCruise"] = bool(pt_cp.vl["GRA_Neu"]["GRA_Zeitluecke"])
-    ret.leftBlinker = bool(pt_cp.vl["Gate_Komf_1"]["GK1_Blinker_li"])
-    ret.rightBlinker = bool(pt_cp.vl["Gate_Komf_1"]["GK1_Blinker_re"])
-
-    # Read ACC hardware button type configuration info that has to pass thru
-    # to the radar. Ends up being different for steering wheel buttons vs
-    # third stalk type controls.
-    self.graHauptschalter = pt_cp.vl["GRA_Neu"]["GRA_Hauptschalt"]
-    self.graSenderCoding = pt_cp.vl["GRA_Neu"]["GRA_Sender"]
-    self.graTypHauptschalter = False
-    self.graButtonTypeInfo = False
-    self.graTipStufe2 = False
-
     # Pick up the GRA_ACC_01 CAN message counter so we can sync to it for
     # later cruise-control button spamming.
-    self.graMsgBusCounter = pt_cp.vl["GRA_Neu"]["GRA_Neu_Zaehler"]
 
     # Additional safety checks performed in CarInterface.
     self.parkingBrakeSet = False #bool(pt_cp.vl["Kombi_1"]["Bremsinfo"])  # FIXME: need to include an EPB check as well
@@ -401,24 +402,13 @@ class CarState(CarStateBase):
       ("Vorzeichen_Bremsdruck", "Bremse_5"),     # Brake pressure applied sign (???)
       ("Fahrpedal_Rohsignal", "Motor_3"),        # Accelerator pedal value
       ("ESP_Passiv_getastet", "Bremse_1"),       # Stability control disabled
-      ("GRA_Status", "Motor_2"),                 # ACC engagement status
       ("GK1_Fa_Tuerkont", "Gate_Komf_1"),        # Door open, driver
       # TODO: locate passenger and rear door states
       ("GK1_Blinker_li", "Gate_Komf_1"),         # Left turn signal on
       ("GK1_Blinker_re", "Gate_Komf_1"),         # Right turn signal on
       ("Bremsinfo", "Kombi_1"),                  # Manual handbrake applied
+      ("GRA_Status", "Motor_2"),                 # ACC engagement status
       ("GRA_Hauptschalt", "GRA_Neu"),            # ACC button, on/off
-      ("GRA_Abbrechen", "GRA_Neu"),              # ACC button, cancel
-      ("GRA_Neu_Setzen", "GRA_Neu"),             # ACC button, set
-      ("GRA_Up_lang", "GRA_Neu"),                # ACC button, increase or accel, long press
-      ("GRA_Down_lang", "GRA_Neu"),              # ACC button, decrease or decel, long press
-      ("GRA_Up_kurz", "GRA_Neu"),                # ACC button, increase or accel, short press
-      ("GRA_Down_kurz", "GRA_Neu"),              # ACC button, decrease or decel, short press
-      ("GRA_Recall", "GRA_Neu"),                 # ACC button, resume
-      ("GRA_Zeitluecke", "GRA_Neu"),             # ACC button, time gap adj
-      ("GRA_Neu_Zaehler", "GRA_Neu"),            # ACC button, time gap adj
-      ("GRA_Sender", "GRA_Neu"),                 # GRA Sender Coding
-      ("BR8_Sta_ADR_BR", "Bremse_8"),            # ABS Pump actively braking for ACC
     ]
 
     checks = [
@@ -431,17 +421,30 @@ class CarState(CarStateBase):
       ("Airbag_1", 50),           # From J234 Airbag control module
       ("Bremse_5", 50),           # From J104 ABS/ESP controller
       ("Bremse_8", 50),           # From J??? ABS/ACC controller
-      ("GRA_Neu", 50),            # From J??? steering wheel control buttons
       ("Kombi_1", 50),            # From J285 Instrument cluster
       ("Motor_2", 50),            # From J623 Engine control module
       ("Lenkhilfe_2", 20),        # From J500 Steering Assist with integrated sensors
       ("Gate_Komf_1", 10),        # From J533 CAN gateway
+      ("GRA_Neu", 50)            # From J??? steering wheel control buttons
     ]
 
     if CP.enableGasInterceptor:
       signals += [("INTERCEPTOR_GAS", "GAS_SENSOR"), ("INTERCEPTOR_GAS2", "GAS_SENSOR")]
       checks += [("GAS_SENSOR", 50)]
 
+    if CP.openpilotLongitudinalControl:
+      signals += [("GRA_Abbrechen", "GRA_Neu"),              # ACC button, cancel
+                  ("GRA_Neu_Setzen", "GRA_Neu"),             # ACC button, set
+                  ("GRA_Up_lang", "GRA_Neu"),                # ACC button, increase or accel, long press
+                  ("GRA_Down_lang", "GRA_Neu"),              # ACC button, decrease or decel, long press
+                  ("GRA_Up_kurz", "GRA_Neu"),                # ACC button, increase or accel, short press
+                  ("GRA_Down_kurz", "GRA_Neu"),              # ACC button, decrease or decel, short press
+                  ("GRA_Recall", "GRA_Neu"),                 # ACC button, resume
+                  ("GRA_Zeitluecke", "GRA_Neu"),             # ACC button, time gap adj
+                  ("GRA_Neu_Zaehler", "GRA_Neu"),            # ACC button, time gap adj
+                  ("GRA_Sender", "GRA_Neu"),                 # GRA Sender Coding
+                  ("BR8_Sta_ADR_BR", "Bremse_8")            # ABS Pump actively braking for ACC
+      ]
     if CP.transmissionType == TransmissionType.automatic:
       signals += [("Waehlhebelposition__Getriebe_1_", "Getriebe_1")]  # Auto trans gear selector position
       checks += [("Getriebe_1", 100)]  # From J743 Auto transmission control module

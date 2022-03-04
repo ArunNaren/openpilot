@@ -40,17 +40,11 @@ class CarInterface(CarInterfaceBase):
     if candidate in PQ_CARS:
       # Set global PQ35/PQ46/NMS parameters
       ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.volkswagenPq)]
-      ret.enableBsm = 0x3BA in fingerprint[1]
+      ret.enableBsm = False
 
-      if 0x440 in fingerprint[1]:  # Getriebe_1 detected: traditional automatic or DSG gearbox
-        ret.transmissionType = TransmissionType.automatic
-      else:  # No trans message at all, must be a true stick-shift manual
-        ret.transmissionType = TransmissionType.manual
+      ret.transmissionType = TransmissionType.automatic
 
-      if 0x1A0 in fingerprint[1] or 0xAE in fingerprint[1]:
-        ret.networkLocation = NetworkLocation.gateway
-      else:
-        ret.networkLocation = NetworkLocation.fwdCamera
+      ret.networkLocation = NetworkLocation.gateway
 
     else:
       # Set global MQB parameters
