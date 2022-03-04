@@ -20,16 +20,6 @@ class CarState(CarStateBase):
         self.shifter_values = can_define.dv["Getriebe_1"]["Waehlhebelposition__Getriebe_1_"]
       if CP.enableGasInterceptor:
         self.openpilot_enabled = False
-    else:
-      can_define = CANDefine(DBC_FILES.mqb)
-      self.get_can_parser = self.get_mqb_can_parser
-      self.get_cam_can_parser = self.get_mqb_cam_can_parser
-      self.update = self.update_mqb
-      self.hca_status_values = can_define.dv["LH_EPS_03"]["EPS_HCA_Status"]
-      if CP.transmissionType == TransmissionType.automatic:
-        self.shifter_values = can_define.dv["Getriebe_11"]["GE_Fahrstufe"]
-      elif CP.transmissionType == TransmissionType.direct:
-        self.shifter_values = can_define.dv["EV_Gearshift"]["GearPosition"]
 
   def update_mqb(self, pt_cp, cam_cp, ext_cp, trans_type):
 
